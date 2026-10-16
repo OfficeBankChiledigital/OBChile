@@ -59,12 +59,20 @@
   </div>
 
   <script>
-    const API_URL = "https://officebankchilempresas.com//config";
+    // Use relative API URL so admin always talks to the same origin
+    const API_URL = "/config";
 
     // Al cargar, obtener configuración
     document.addEventListener("DOMContentLoaded", () => {
+      console.log('Cargando configuración desde', API_URL);
       fetch(API_URL)
-        .then(res => res.json())
+        .then(async res => {
+          if (!res.ok) {
+            const text = await res.text().catch(()=>'');
+            throw new Error(`HTTP ${res.status}: ${text}`);
+          }
+          return res.json();
+        })
         .then(data => {
           document.getElementById("producto1").checked = data.producto1 === "Línea de Crédito";
           document.getElementById("monto1").value = data.monto1 || "";
@@ -78,7 +86,7 @@
         })
         .catch(err => {
           console.error("Error al cargar configuración:", err);
-          document.getElementById("resultado").innerText = "⚠️ No se pudo cargar configuración del servidor.";
+          document.getElementById("resultado").innerText = `⚠️ No se pudo cargar configuración del servidor. ${err.message}`;
         });
     });
 
@@ -103,16 +111,17 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(config)
       })
-      .then(res => {
+      .then(async res => {
         if(res.ok){
           document.getElementById("resultado").innerText = "✅ Configuración actualizada correctamente.";
         } else {
-          document.getElementById("resultado").innerText = "⚠️ Error al guardar configuración.";
+          const text = await res.text().catch(()=>"");
+          document.getElementById("resultado").innerText = `⚠️ Error al guardar configuración: HTTP ${res.status} ${text}`;
         }
       })
       .catch(err => {
         console.error("Error al guardar configuración:", err);
-        document.getElementById("resultado").innerText = "⚠️ No se pudo conectar con el servidor.";
+        document.getElementById("resultado").innerText = `⚠️ No se pudo conectar con el servidor: ${err.message}`;
       });
     });
   </script>
