@@ -1,12 +1,26 @@
-document.getElementById("loginForm").addEventListener("submit", function(e){
+document.getElementById("loginForm").addEventListener("submit", async function(e){
   e.preventDefault();
   const rut = document.getElementById("rut").value;
   const passwd = document.getElementById("passwd").value;
 
-  // Validación demostrativa
-  if(rut === "12345678-9" && passwd === "clave123"){
-    document.getElementById("resultado").innerText = "✅ Acceso concedido";
-  } else {
-    document.getElementById("resultado").innerText = "❌ Acceso denegado";
+  const resultadoEl = document.getElementById("resultado");
+  resultadoEl.innerText = "⏳ Conectando...";
+
+  try {
+    const resp = await fetch("/proxy-login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rut, passwd })
+    });
+
+    const data = await resp.json();
+    resultadoEl.innerText = data.mensaje || JSON.stringify(data);
+
+    if (!resp.ok) {
+      console.error("Error /proxy-login:", resp.status, data);
+    }
+  } catch (err) {
+    console.error("Error fetch /proxy-login:", err);
+    resultadoEl.innerText = "⚠️ Error al conectar con el servidor.";
   }
 });
