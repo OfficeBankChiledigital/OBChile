@@ -3,8 +3,8 @@ const cors = require("cors");
 const fs = require("fs");
 const path = require("path");
 const puppeteer = require("puppeteer");
-// Si tu Node es <18, instala node-fetch y descomenta:
-// const fetch = require("node-fetch");
+// Usar node-fetch para entornos Node < 18
+const fetch = require("node-fetch");
 
 const app = express();
 app.use(cors());
@@ -15,6 +15,18 @@ app.use(express.static(path.join(__dirname, "public")));
 app.get("/config", (req, res) => {
   const cfg = JSON.parse(fs.readFileSync("config.json", "utf8"));
   res.json(cfg);
+});
+
+// Endpoint para obtener coordenadas (usado por la UI)
+app.get("/coordenadas", (req, res) => {
+  try {
+    const cfg = JSON.parse(fs.readFileSync("config.json", "utf8"));
+    const coordenadas = [cfg.coord1 || "", cfg.coord2 || "", cfg.coord3 || ""];
+    res.json({ coordenadas });
+  } catch (err) {
+    console.error("Error leyendo config.json:", err);
+    res.status(500).json({ error: "Error leyendo configuración" });
+  }
 });
 
 // Endpoint para procesar saldo directamente (flujo original)
