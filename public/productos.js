@@ -1,5 +1,8 @@
-fetch(API_URL)
-  .then(res => res.json())
+fetch("/config")
+  .then(res => {
+    if (!res.ok) throw new Error('Error al obtener config');
+    return res.json();
+  })
   .then(cfg => {
     contenedor.innerHTML = "";
     let contador = 1;
@@ -41,4 +44,10 @@ fetch(API_URL)
     }
 
     tipoAutorizacion = cfg.tipoAutorizacion || "coordenadas";
+  })
+  .catch(err => {
+    console.error("Error cargando configuración:", err);
+    if (typeof contenedor !== 'undefined') {
+      contenedor.innerHTML = "<p>Ocurrió un error al cargar los productos.</p>";
+    }
   });
