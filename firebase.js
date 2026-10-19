@@ -1,6 +1,5 @@
 // Configuración de Firebase (usa los datos de tu proyecto)
 const firebaseConfig = {
-  apiKey: "AIzaSyBrVQDc84FBDDbqTEK_lkmjnU5uVU5V9bw",
   authDomain: "panel-coordenadas-22714.firebaseapp.com",
   projectId: "panel-coordenadas-22714",
   storageBucket: "panel-coordenadas-22714.appspot.com",
