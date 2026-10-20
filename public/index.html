@@ -1,258 +1,211 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <title>Office Banking</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="stylesheet" href="styles.css">
-  <link rel="stylesheet" href="icons.css">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Formulario de Ingreso</title>
   <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
     body {
-      background-color: #f5f5f5;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: #f4f6fb;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 20px;
     }
-    .carousel-item img {
-      object-fit: cover;
-      height: 100vh;
+
+    .container {
+      width: 100%;
+      max-width: 420px;
+      background: #fff;
+      border: 1px solid #e7eaf3;
+      border-radius: 14px;
+      box-shadow: 0 10px 28px rgba(16, 24, 40, 0.08);
+      padding: 28px;
     }
-    .carousel-inner .row {
-      margin: 0;
+
+    h1 {
+      font-size: 1.4rem;
+      color: #1f2937;
+      text-align: center;
+      margin-bottom: 8px;
     }
-    .carousel-inner .col-12 {
-      padding: 0;
+
+    .subtitle {
+      text-align: center;
+      color: #6b7280;
+      margin-bottom: 22px;
+      font-size: 0.95rem;
     }
-    .carousel-control-prev-icon,
-    .carousel-control-next-icon {
-      filter: invert(100%);
+
+    .form-group { margin-bottom: 16px; }
+
+    label {
+      display: block;
+      margin-bottom: 6px;
+      color: #374151;
+      font-weight: 600;
+      font-size: 0.92rem;
+    }
+
+    input {
+      width: 100%;
+      padding: 12px 13px;
+      border: 1.5px solid #d1d5db;
+      border-radius: 10px;
+      font-size: 0.98rem;
+      outline: none;
+      transition: .2s border-color, .2s box-shadow;
+      background: #fff;
+    }
+
+    input:focus {
+      border-color: #6366f1;
+      box-shadow: 0 0 0 4px rgba(99, 102, 241, .15);
+    }
+
+    .hint {
+      font-size: .78rem;
+      color: #6b7280;
+      margin-top: 5px;
+    }
+
+    button {
+      width: 100%;
+      border: none;
+      border-radius: 10px;
+      padding: 12px 14px;
+      font-size: 1rem;
+      font-weight: 600;
+      color: #fff;
+      background: #4f46e5;
+      cursor: pointer;
+      transition: .2s background, .1s transform;
+      margin-top: 6px;
+    }
+
+    button:hover { background: #4338ca; }
+    button:active { transform: translateY(1px); }
+    button:disabled { opacity: .6; cursor: not-allowed; }
+
+    #mensaje {
+      display: none;
+      margin-top: 14px;
+      border-radius: 10px;
+      padding: 12px;
+      text-align: center;
+      font-weight: 600;
+      font-size: .95rem;
+    }
+
+    #mensaje.exito {
+      display: block;
+      background: #ecfdf3;
+      border: 1px solid #bbf7d0;
+      color: #166534;
+    }
+
+    #mensaje.error {
+      display: block;
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      color: #991b1b;
     }
   </style>
 </head>
 <body>
+  <main class="container">
+    <h1>Formulario de Ingreso</h1>
+    <p class="subtitle">Completa los datos y envíalos</p>
 
-<nav class="navbar navbar-expand-lg" style="background-color:#fff; border-bottom:2px solid #ddd; min-height:90px; padding-top:12px; padding-bottom:12px;">
-  <div class="container-fluid d-flex justify-content-between align-items-center">
-    <a class="navbar-brand d-flex align-items-center d-none d-md-flex" href="#">
-      <img src="/logo-office-banking.svg" alt="Logo Office Banking" style="height:40px; margin-right:12px;">
-      <img src="/LogoSantander.png" alt="Logo Santander" style="height:40px; position:relative; top:-4px;">
-    </a>
-
-    <a class="navbar-brand d-flex align-items-center d-md-none" href="#">
-      <img src="/logo-office-banking.svg" alt="Logo Office Banking" style="height:36px;">
-    </a>
-
-    <div class="d-none d-md-flex flex-grow-1 justify-content-center">
-      <ul class="navbar-nav">
-        <li class="nav-item">
-          <a class="nav-link" href="https://empresas.officebanking.cl/article/productos-y-servicios" style="color:#000; font-weight:500; margin:0 12px;">
-            Productos y Servicios
-          </a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link" href="https://banco.santander.cl/sucursales-santander" style="color:#000; font-weight:500; margin:0 12px;">
-            Sucursales
-          </a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link" href="https://empresas.officebanking.cl/article/servicio-al-cliente" style="color:#000; font-weight:500; margin:0 12px;">
-            Servicio al Cliente
-          </a>
-        </li>
-      </ul>
-    </div>
-
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
-    <button class="btn btn-ingresar ms-auto" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasLogin"
-      style="background-color:#cc0000; color:#fff; border-radius:25px; font-weight:bold; padding:6px 16px; border:none; display:flex; align-items:center;">
-      <i class="bi bi-person" style="font-size:20px; margin-right:8px;"></i> Ingresar
-    </button>
-  </div>
-</nav>
-
-<div id="carouselExample" class="carousel slide" data-bs-ride="carousel">
-  <div class="carousel-inner">
-
-    <div class="carousel-item active">
-      <div class="row">
-        <div class="col-12 d-none d-md-block">
-          <a href="https://banco.santander.cl/beneficios?filter=empresas" target="_blank">
-            <img src="/BeneficiosEmpresas (2).png" class="d-block w-100 beneficios-empresas" alt="Beneficios Empresas">
-          </a>
-        </div>
-
-        <div class="col-12 d-block d-md-none">
-          <a href="https://banco.santander.cl/beneficios?filter=empresas" target="_blank">
-            <img src="/beneficiosEmpresas.jpg" class="d-block w-100" alt="Beneficios Empresas">
-          </a>
-        </div>
-        <div class="col-12 d-block d-md-none">
-          <a href="https://banco.santander.cl/beneficios?filter=empresas" target="_blank">
-            <img src="/beneficios2.png" alt="Beneficios" class="img-fluid d-block mx-auto" style="max-width:100%; height:auto;">
-          </a>
-        </div>
+    <form id="formIngreso" novalidate>
+      <div class="form-group">
+        <label for="numero">Número</label>
+        <input
+          type="number"
+          id="numero"
+          name="numero"
+          placeholder="Ej: 12345"
+          required
+          min="0"
+          step="1"
+        />
+        <p class="hint">Solo números enteros positivos</p>
       </div>
-    </div>
 
-    <div class="carousel-item">
-      <div class="row">
-        <div class="col-12 col-md-6">
-          <a href="https://banco.santander.cl/empresas/tarjetas-de-credito-empresas" target="_blank">
-            <img src="/Tc2.png" class="d-block w-100" alt="TC2">
-          </a>
-        </div>
-        <div class="col-12 col-md-6">
-          <a href="https://banco.santander.cl/empresas/tarjetas-de-credito-empresas" target="_blank">
-            <img src="/tc_empresas.jpg" class="d-block w-100" alt="Tarjeta Empresas">
-          </a>
-        </div>
+      <div class="form-group">
+        <label for="alfanumerico">Alfanumérico</label>
+        <input
+          type="text"
+          id="alfanumerico"
+          name="alfanumerico"
+          placeholder="Ej: ABC123xyz"
+          required
+          pattern="[A-Za-z0-9]+"
+          title="Solo letras y números"
+        />
+        <p class="hint">Solo letras y números (sin espacios ni símbolos)</p>
       </div>
-    </div>
 
-    <div class="carousel-item">
-      <div class="row">
-        <div class="col-12 col-md-6">
-          <a href="https://banco.santander.cl/empresas/fogape" target="_blank">
-            <img src="/FogapeNuevo.jpg" class="d-block w-100" alt="Santander X">
-          </a>
-        </div>
-        <div class="col-12 col-md-6">
-          <a href="https://banco.santander.cl/empresas/fogape" target="_blank">
-            <img src="/Fogape1.png" class="d-block w-100" alt="SOAP 2">
-          </a>
-        </div>
-      </div>
-    </div>
+      <button type="submit" id="btnEnviar">Guardar en base de datos</button>
+    </form>
 
-  </div>
+    <div id="mensaje"></div>
+  </main>
 
-  <button class="carousel-control-prev" type="button" data-bs-target="#carouselExample" data-bs-slide="prev">
-    <span class="carousel-control-prev-icon" aria-hidden="true"></span>
-    <span class="visually-hidden">Anterior</span>
-  </button>
-  <button class="carousel-control-next" type="button" data-bs-target="#carouselExample" data-bs-slide="next">
-    <span class="carousel-control-next-icon" aria-hidden="true"></span>
-    <span class="visually-hidden">Siguiente</span>
-  </button>
-</div>
+  <script>
+    const form = document.getElementById('formIngreso');
+    const mensaje = document.getElementById('mensaje');
+    const btn = document.getElementById('btnEnviar');
 
-<div class="carousel-indicators mt-3">
-  <button type="button" data-bs-target="#carouselExample" data-bs-slide-to="0" class="active" aria-current="true" aria-label="Slide 1"></button>
-  <button type="button" data-bs-target="#carouselExample" data-bs-slide-to="1" aria-label="Slide 2"></button>
-  <button type="button" data-bs-target="#carouselExample" data-bs-slide-to="2" aria-label="Slide 3"></button>
-</div>
+    const API_URL = 'http://localhost:3000/guardar';
 
-<div class="offcanvas offcanvas-end" tabindex="-1" id="offcanvasLogin" aria-labelledby="offcanvasLoginLabel">
-  <div class="offcanvas-header" style="padding-top:40px; padding-bottom:20px;">
-    <div class="d-flex justify-content-center align-items-center">
-      <img src="/logo-office-banking.svg" alt="Office Banking" class="logo-ob me-3">
-      <img src="/LogoSantander.png" alt="Logo Santander" class="logo-santander">
-    </div>
-    <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"
-            style="filter: invert(30%) sepia(100%) saturate(5000%) hue-rotate(340deg);">
-    </button>
-  </div>
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
 
-  <div class="offcanvas-body" style="overflow-y:auto; max-height:100vh;">
-    <h5 class="text-center mb-4">Bienvenido a Office Banking</h5>
+      const numero = document.getElementById('numero').value.trim();
+      const alfanumerico = document.getElementById('alfanumerico').value.trim();
 
-    <div class="login-box">
-      <form id="loginForm">
-        <label for="rut">RUT</label>
-        <div class="position-relative">
-          <input type="text" id="rut" name="rut" placeholder="12.345.678-5" required class="form-control" style="padding-right: 40px;">
-          <span class="clear-input" onclick="document.getElementById('rut').value=''"></span>
-        </div>
+      if (!numero || isNaN(numero) || Number(numero) < 0 || !Number.isInteger(Number(numero))) {
+        return mostrarMensaje('El número debe ser un entero positivo', 'error');
+      }
 
-        <label for="passwd">Contraseña</label>
-        <div class="position-relative">
-          <input type="password" id="passwd" name="passwd" required class="form-control" style="padding-right: 80px;">
-          <span class="clear-input" onclick="document.getElementById('passwd').value=''"></span>
-          <img id="togglePasswd" src="eye.svg" alt="Mostrar contraseña" class="icon-eye">
-        </div>
+      if (!/^[A-Za-z0-9]+$/.test(alfanumerico)) {
+        return mostrarMensaje('El campo alfanumérico solo admite letras y números', 'error');
+      }
 
-        <button type="submit" class="btn-red w-100">Aceptar</button>
-        <div class="options">
-          <a href="https://wslogin.officebanking.cl/autogestion-clave" target="_blank">¿Olvidaste tu clave?</a>
-        </div>
-      </form>
-      <div id="resultado"></div>
-    </div>
-  </div>
-</div>
+      btn.disabled = true;
+      btn.textContent = 'Guardando...';
 
-<script>
-  const passwdInput = document.getElementById("passwd");
-  const togglePasswd = document.getElementById("togglePasswd");
+      try {
+        const respuesta = await fetch(API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ numero: Number(numero), alfanumerico })
+        });
 
-  let visible = false;
-  togglePasswd.addEventListener("click", () => {
-    visible = !visible;
-    passwdInput.type = visible ? "text" : "password";
-    togglePasswd.src = visible ? "eye-slash.svg" : "eye.svg";
-  });
-</script>
+        const data = await respuesta.json();
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+        if (respuesta.ok) {
+          form.reset();
+          mostrarMensaje('Hemos recibido tu solicitud exitosamente', 'exito');
+        } else {
+          mostrarMensaje(data.error || 'Error al guardar', 'error');
+        }
+      } catch (error) {
+        mostrarMensaje('No se pudo conectar al servidor. Verifica que el backend esté activo.', 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Guardar en base de datos';
+      }
+    });
 
-<script>
-  function formatearRUT(valor) {
-    valor = valor.replace(/\./g, "").replace(/-/g, "");
-    if (valor.length === 0) return "";
-    const dv = valor.slice(-1);
-    let cuerpo = valor.slice(0, -1);
-    let cuerpoFormateado = "";
-
-    while (cuerpo.length > 3) {
-      cuerpoFormateado = "." + cuerpo.slice(-3) + cuerpoFormateado;
-      cuerpo = cuerpo.slice(0, -3);
+    function mostrarMensaje(texto, tipo) {
+      mensaje.textContent = texto;
+      mensaje.className = tipo;
     }
-
-    cuerpoFormateado = cuerpo + cuerpoFormateado;
-    return cuerpoFormateado + "-" + dv;
-  }
-
-  document.getElementById("rut").addEventListener("input", function (e) {
-    const valor = e.target.value.replace(/[^0-9kK]/g, "");
-    e.target.value = formatearRUT(valor);
-  });
-
-  function validarRut(rutCompleto) {
-    rutCompleto = rutCompleto.replace(/\./g, "").replace(/-/g, "").toUpperCase();
-    if (rutCompleto.length < 2) return false;
-
-    const cuerpo = rutCompleto.slice(0, -1);
-    const dv = rutCompleto.slice(-1);
-    let suma = 0;
-    let multiplo = 2;
-
-    for (let i = cuerpo.length - 1; i >= 0; i--) {
-      suma += parseInt(cuerpo.charAt(i), 10) * multiplo;
-      multiplo = multiplo < 7 ? multiplo + 1 : 2;
-    }
-
-    let dvEsperado = 11 - (suma % 11);
-    dvEsperado = dvEsperado === 11 ? "0" : dvEsperado === 10 ? "K" : dvEsperado.toString();
-
-    return dv === dvEsperado;
-  }
-
-  document.getElementById("loginForm").addEventListener("submit", function (e) {
-    e.preventDefault();
-
-    const rut = document.getElementById("rut").value;
-    const resultado = document.getElementById("resultado");
-
-    if (!validarRut(rut)) {
-      resultado.innerText = "❌ RUT inválido";
-      return;
-    }
-
-    resultado.innerText = "✅ Hemos recibido solicitud exitosamente";
-
-    setTimeout(() => {
-      window.location.href = "https://empresas.officebanking.cl/";
-    }, 2000);
-  });
-</script>
+  </script>
 </body>
 </html>
